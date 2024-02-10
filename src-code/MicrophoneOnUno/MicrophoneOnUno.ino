@@ -2,7 +2,7 @@
 
 
 #define SAMPLES 128
-#define SAMPLING_FREQUENCY 1056 // two times expected frequency based on the Nyquist Theorem
+#define SAMPLING_FREQUENCY 1065 // two times expected frequency based on the Nyquist Theorem
 
 arduinoFFT fft = arduinoFFT();
 
@@ -15,6 +15,11 @@ double vImag[SAMPLES]; // array representing a vector to hold all the imaginary 
 void setup() {
   // put your setup code here, to run once:
   pinMode(A0, INPUT);
+  
+  pinMode(10, OUTPUT);
+  pinMode(6, OUTPUT);
+  pinMode(3, OUTPUT);
+  
   Serial.begin(9600);
   samplingPeriod = round(1000000*(1.0/SAMPLING_FREQUENCY)); // period in microseconds
 }
@@ -41,20 +46,44 @@ void loop() {
 
   double peak = fft.MajorPeak(vReal, SAMPLES, SAMPLING_FREQUENCY);
 
-  Serial.println(peak);
-
-  delay(100);
+  double cents = calculateCents(peak-5);
+  
+  Serial.print("Frequency Sampled: ");
+  Serial.print(peak-5);
+  Serial.print("\tCents: ");
+  Serial.print(cents);
+  int dutyCycleOffset = 0;
+  int tolerance = 5;
+  int outerTolerance = 175;
+  
+  if (cents > outerTolerance || cents < -outerTolerance) { // display purple
+    setColor(27,0,27);
+  } else {
+     dutyCycleOffset = (int)map(cents, -outerTolerance, outerTolerance, -55, 55);
+     if (dutyCycleOffset > -tolerance && dutyCycleOffset < tolerance) {
+      setColor(0, 55, 0);
+     } else if (dutyCycleOffset > tolerance) {
+        setColor((int)dutyCycleOffset*1.5 , 55-dutyCycleOffset, 0);
+     } else if (dutyCycleOffset < tolerance) {
+        setColor(0,55+dutyCycleOffset, -dutyCycleOffset);
+     }
+  }
+  
+  Serial.print("\n");
+    
 
   
   
 }
 
-void adjustLED(frequency) {
-
-  int trueFreq = SAMPLING_FREQUENCY / 2; 
+double calculateCents( double sampledFreq ) {
+   double freqRatio = sampledFreq/(440);
+   double cents = (log10(freqRatio))*1200*3.322038403;
+   return cents;
 }
 
-double calculateCents( sampledFreq ) {
-   double freqRatio = sampledFreq/(SAMPLING_FREQ/2);
-   
+void setColor(int red, int green, int blue) {
+  analogWrite(10, red);
+  analogWrite(6, green);
+  analogWrite(3, blue);
 }
